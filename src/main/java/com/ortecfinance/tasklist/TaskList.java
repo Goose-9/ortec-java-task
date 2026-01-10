@@ -1,5 +1,8 @@
 package com.ortecfinance.tasklist;
 
+import com.ortecfinance.tasklist.core.InMemoryTaskRepository;
+import com.ortecfinance.tasklist.core.TaskListService;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -11,11 +14,9 @@ import java.util.*;
 public final class TaskList implements Runnable {
     private static final String QUIT = "quit";
 
-    private final Map<String, List<Task>> tasks = new LinkedHashMap<>();
     private final BufferedReader in;
     private final PrintWriter out;
-
-    private long lastId = 0;
+    private final TaskListService service;
 
     public static void startConsole() {
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
@@ -26,6 +27,7 @@ public final class TaskList implements Runnable {
     public TaskList(BufferedReader reader, PrintWriter writer) {
         this.in = reader;
         this.out = writer;
+        this.service = new TaskListService(new InMemoryTaskRepository());
     }
 
     public void run() {
@@ -78,7 +80,7 @@ public final class TaskList implements Runnable {
     }
 
     private void show() {
-        for (Map.Entry<String, List<Task>> project : tasks.entrySet()) {
+        for (Map.Entry<String, List<Task>> project : service.allProjects().entrySet()) {
             out.println(project.getKey());
             for (Task task : project.getValue()) {
                 out.printf("    [%c] %d: %s%n", (task.isDone() ? 'x' : ' '), task.getId(), task.getDescription());
@@ -87,40 +89,54 @@ public final class TaskList implements Runnable {
         }
     }
 
+    private void add(String commandLine) {
+        String[] subcommandRest = commandLine.split(" ", 2);
+        String subcommand = subcommandRest[0];
+        if (subcommand.equals("project")) {
+            addProject(subcommandRest[1]);
+        } else if (subcommand.equals("task")) {
+            String[] projectTask = subcommandRest[1].split(" ", 2);
+            addTask(projectTask[0], projectTask[1]);
+        }
+    }
+
+    private void addProject(String name) {
+        service.addProject(name);
+    }
+
+    private void addTask(String project, String description) {
+        boolean ok = service.addTask(project, description);
+        if (!ok) {
+            out.printf("Could not find a project with the name \"%s\".", project);
+            out.println();
+        }
+    }
+
+    private void check(String idString) {
+        setDone(idString, true);
+    }
+
+    private void uncheck(String idString) {
+        setDone(idString, false);
+    }
+
+    private void setDone(String idString, boolean done) {
+        int id = Integer.parseInt(idString);
+
+        boolean ok = service.setDone(id, done);
+        if (!ok) {
+            out.printf("Could not find a task with an ID of %d.", id);
+            out.println();
+        }
+    }
+
     private static final String INDENT_PROJECT = "     ";       // 5 spaces
     private static final String INDENT_TASK = "          ";     // 10 spaces
 
-    private record DeadlineGroups(
-            Map<LocalDate, Map<String, List<Task>>> byDeadline,
-            Map<String, List<Task>> noDeadline
-    ) {}
-
     private void viewByDeadline(){
-        DeadlineGroups groups = groupTasksByDeadlineThenProject();
+        TaskListService.DeadlineGroups groups = service.viewByDeadlineGroups();
         printDeadlineGroups(groups.byDeadline());
         printNoDeadlineGroups(groups.noDeadline());
-    }
-
-    private DeadlineGroups groupTasksByDeadlineThenProject() {
-        Map<LocalDate, Map<String, List<Task>>> byDeadline = new TreeMap<>();
-        Map<String,List<Task>> noDeadline = new TreeMap<>();
-
-        for (Map.Entry<String, List<Task>> project : tasks.entrySet()) {
-            String projectName = project.getKey();
-            for (Task task : project.getValue()) {
-                task.getDeadline().ifPresentOrElse(
-                        deadline -> byDeadline
-                                .computeIfAbsent(deadline, t -> new TreeMap<>())
-                                .computeIfAbsent(projectName, l -> new ArrayList<>())
-                                .add(task),
-                        () -> noDeadline
-                                .computeIfAbsent(projectName, l -> new ArrayList<>())
-                                .add(task)
-                );
-            }
-        }
-
-        return new DeadlineGroups(byDeadline, noDeadline);
     }
 
     private void printDeadlineGroups(Map<LocalDate,Map<String, List<Task>>> byDeadline) {
@@ -155,10 +171,10 @@ public final class TaskList implements Runnable {
 
     private void deadline(String commandLine) {
         String[] deadlineCommandRest = commandLine.split(" ", 2);
-        int id;
+        long id;
 
         try{
-            id = Integer.parseInt(deadlineCommandRest[0]);
+            id = Long.parseLong(deadlineCommandRest[0]);
         } catch (NumberFormatException e) {
             out.println("Task ID must be a number.");
             return;
@@ -172,71 +188,15 @@ public final class TaskList implements Runnable {
             return;
         }
 
-        Optional<Task> taskOpt = findTaskById(id);
-        if (taskOpt.isPresent()) {
-            taskOpt.get().setDeadline(date);
-            return;
-        }
-
-        out.printf("Could not find a task with an ID of %d.", id);
-        out.println();
+        setDeadline(id, date);
     }
 
-    private void add(String commandLine) {
-        String[] subcommandRest = commandLine.split(" ", 2);
-        String subcommand = subcommandRest[0];
-        if (subcommand.equals("project")) {
-            addProject(subcommandRest[1]);
-        } else if (subcommand.equals("task")) {
-            String[] projectTask = subcommandRest[1].split(" ", 2);
-            addTask(projectTask[0], projectTask[1]);
-        }
-    }
-
-    private void addProject(String name) {
-        tasks.put(name, new ArrayList<Task>());
-    }
-
-    private void addTask(String project, String description) {
-        List<Task> projectTasks = tasks.get(project);
-        if (projectTasks == null) {
-            out.printf("Could not find a project with the name \"%s\".", project);
+    private void setDeadline(Long taskId, LocalDate deadline) {
+        boolean ok = service.setDeadline(taskId, deadline);
+        if (!ok) {
+            out.printf("Could not find a task with an ID of %d.", taskId);
             out.println();
-            return;
         }
-        projectTasks.add(new Task(nextId(), description, false));
-    }
-
-    private void check(String idString) {
-        setDone(idString, true);
-    }
-
-    private void uncheck(String idString) {
-        setDone(idString, false);
-    }
-
-    private void setDone(String idString, boolean done) {
-        int id = Integer.parseInt(idString);
-
-        Optional<Task> taskOpt = findTaskById(id);
-        if (taskOpt.isPresent()) {
-            taskOpt.get().setDone(done);
-            return;
-        }
-
-        out.printf("Could not find a task with an ID of %d.", id);
-        out.println();
-    }
-
-    private Optional<Task> findTaskById(int id) {
-        for (Map.Entry<String, List<Task>> project : tasks.entrySet()) {
-            for (Task task : project.getValue()) {
-                if (task.getId() == id) {
-                    return Optional.of(task);
-                }
-            }
-        }
-        return Optional.empty();
     }
 
     private void help() {
@@ -253,9 +213,5 @@ public final class TaskList implements Runnable {
     private void error(String command) {
         out.printf("I don't know what the command \"%s\" is.", command);
         out.println();
-    }
-
-    private long nextId() {
-        return ++lastId;
     }
 }
