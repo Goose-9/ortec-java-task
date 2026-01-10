@@ -94,6 +94,29 @@ public final class ApplicationTest {
         execute("quit");
     }
 
+    @Test
+    void it_supports_setting_deadlines_and_handles_bad_input() throws IOException {
+        execute("add project secrets");
+        execute("add task secrets Eat more donuts.");
+
+        // Valid deadline
+        execute("deadline 1 25-01-2026");
+
+        // Invalid deadline (catch error and print error message with no crash)
+        execute("deadline 1 25-1-2026");
+        readLines("Invalid date format. Please use dd-MM-yyyy.");
+
+        // Unknown number ID
+        execute("deadline 999 25-01-2026");
+        readLines("Could not find a task with an ID of 999.");
+
+        // Non number ID
+        execute("deadline one 25-01-2026");
+        readLines("Task ID must be a number.");
+
+        execute("quit");
+    }
+
     private void execute(String command) throws IOException {
         read(PROMPT);
         write(command);
