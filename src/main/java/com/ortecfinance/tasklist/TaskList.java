@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.sql.Array;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.*;
@@ -56,6 +57,9 @@ public final class TaskList implements Runnable {
             case "deadline":
                 deadline(commandRest[1]);
                 break;
+            case "view-by-deadline":
+                viewByDeadline();
+                break;
             case "add":
                 add(commandRest[1]);
                 break;
@@ -79,6 +83,57 @@ public final class TaskList implements Runnable {
             out.println(project.getKey());
             for (Task task : project.getValue()) {
                 out.printf("    [%c] %d: %s%n", (task.isDone() ? 'x' : ' '), task.getId(), task.getDescription());
+            }
+            out.println();
+        }
+    }
+
+    private void viewByDeadline(){
+        Map<LocalDate, Map<String, List<Task>>> byDeadline = new TreeMap<>();
+        Map<String,List<Task>> noDeadline = new TreeMap<>();
+
+        for (Map.Entry<String, List<Task>> project : tasks.entrySet()) {
+            String projectName = project.getKey();
+
+            for (Task task : project.getValue()) {
+                Optional<LocalDate> deadlineOpt = task.getDeadline();
+                if (deadlineOpt.isPresent()) {
+                    LocalDate deadline = deadlineOpt.get();
+                    Map<String, List<Task>> byProject =
+                            byDeadline.computeIfAbsent(deadline, t -> new TreeMap<>());
+                    byProject.computeIfAbsent(projectName, l -> new ArrayList<>()).add(task);
+                } else {
+                    noDeadline.computeIfAbsent(projectName, l -> new ArrayList<>()).add(task);
+                }
+            }
+        }
+
+        // print deadline groups
+        for (Map.Entry<LocalDate, Map<String, List<Task>>> dateGroup : byDeadline.entrySet()) {
+            out.println(dateGroup.getKey().format(DateFormats.DEADLINE_FORMAT) + ":");
+
+            for (Map.Entry<String, List<Task>> projectGroup : dateGroup.getValue().entrySet()) {
+                out.println("     " + projectGroup.getKey() + ":");
+
+                projectGroup.getValue().sort(Comparator.comparingLong(Task::getId));
+                for (Task task : projectGroup.getValue()) {
+                    out.printf("          %d: %s%n", task.getId(), task.getDescription());
+                }
+            }
+            out.println();
+        }
+
+        // print no deadline groups
+        if (!noDeadline.isEmpty()) {
+            out.println("No deadline:");
+
+            for (Map.Entry<String, List<Task>> projectGroup : noDeadline.entrySet()) {
+                out.println("     " + projectGroup.getKey() + ":");
+
+                projectGroup.getValue().sort(Comparator.comparingLong(Task::getId));
+                for (Task task : projectGroup.getValue()) {
+                    out.printf("          %d: %s%n", task.getId(), task.getDescription());
+                }
             }
             out.println();
         }
