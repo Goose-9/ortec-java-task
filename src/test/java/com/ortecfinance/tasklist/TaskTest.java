@@ -1,5 +1,6 @@
 package com.ortecfinance.tasklist;
 
+import com.ortecfinance.tasklist.domain.Task;
 import org.junit.jupiter.api.Test;
 import java.time.LocalDate;
 

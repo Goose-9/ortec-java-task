@@ -1,6 +1,6 @@
 package com.ortecfinance.tasklist.core;
 
-import com.ortecfinance.tasklist.Task;
+import com.ortecfinance.tasklist.domain.Task;
 
 import java.util.List;
 import java.util.Map;

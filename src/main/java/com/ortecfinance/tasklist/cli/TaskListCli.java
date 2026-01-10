@@ -1,7 +1,9 @@
-package com.ortecfinance.tasklist;
+package com.ortecfinance.tasklist.cli;
 
 import com.ortecfinance.tasklist.core.InMemoryTaskRepository;
 import com.ortecfinance.tasklist.core.TaskListService;
+import com.ortecfinance.tasklist.domain.DateFormats;
+import com.ortecfinance.tasklist.domain.Task;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -11,7 +13,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.*;
 
-public final class TaskList implements Runnable {
+public final class TaskListCli implements Runnable {
     private static final String QUIT = "quit";
 
     private final BufferedReader in;
@@ -21,10 +23,10 @@ public final class TaskList implements Runnable {
     public static void startConsole() {
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
         PrintWriter out = new PrintWriter(System.out);
-        new TaskList(in, out).run();
+        new TaskListCli(in, out).run();
     }
 
-    public TaskList(BufferedReader reader, PrintWriter writer) {
+    public TaskListCli(BufferedReader reader, PrintWriter writer) {
         this.in = reader;
         this.out = writer;
         this.service = new TaskListService(new InMemoryTaskRepository());
