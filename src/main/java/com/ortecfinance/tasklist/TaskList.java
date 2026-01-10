@@ -4,7 +4,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.sql.Array;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.*;
@@ -88,54 +87,69 @@ public final class TaskList implements Runnable {
         }
     }
 
+    private static final String INDENT_PROJECT = "     ";       // 5 spaces
+    private static final String INDENT_TASK = "          ";     // 10 spaces
+
+    private record DeadlineGroups(
+            Map<LocalDate, Map<String, List<Task>>> byDeadline,
+            Map<String, List<Task>> noDeadline
+    ) {}
+
     private void viewByDeadline(){
+        DeadlineGroups groups = groupTasksByDeadlineThenProject();
+        printDeadlineGroups(groups.byDeadline());
+        printNoDeadlineGroups(groups.noDeadline());
+    }
+
+    private DeadlineGroups groupTasksByDeadlineThenProject() {
         Map<LocalDate, Map<String, List<Task>>> byDeadline = new TreeMap<>();
         Map<String,List<Task>> noDeadline = new TreeMap<>();
 
         for (Map.Entry<String, List<Task>> project : tasks.entrySet()) {
             String projectName = project.getKey();
-
             for (Task task : project.getValue()) {
-                Optional<LocalDate> deadlineOpt = task.getDeadline();
-                if (deadlineOpt.isPresent()) {
-                    LocalDate deadline = deadlineOpt.get();
-                    Map<String, List<Task>> byProject =
-                            byDeadline.computeIfAbsent(deadline, t -> new TreeMap<>());
-                    byProject.computeIfAbsent(projectName, l -> new ArrayList<>()).add(task);
-                } else {
-                    noDeadline.computeIfAbsent(projectName, l -> new ArrayList<>()).add(task);
-                }
+                task.getDeadline().ifPresentOrElse(
+                        deadline -> byDeadline
+                                .computeIfAbsent(deadline, t -> new TreeMap<>())
+                                .computeIfAbsent(projectName, l -> new ArrayList<>())
+                                .add(task),
+                        () -> noDeadline
+                                .computeIfAbsent(projectName, l -> new ArrayList<>())
+                                .add(task)
+                );
             }
         }
 
-        // print deadline groups
+        return new DeadlineGroups(byDeadline, noDeadline);
+    }
+
+    private void printDeadlineGroups(Map<LocalDate,Map<String, List<Task>>> byDeadline) {
         for (Map.Entry<LocalDate, Map<String, List<Task>>> dateGroup : byDeadline.entrySet()) {
             out.println(dateGroup.getKey().format(DateFormats.DEADLINE_FORMAT) + ":");
-
-            for (Map.Entry<String, List<Task>> projectGroup : dateGroup.getValue().entrySet()) {
-                out.println("     " + projectGroup.getKey() + ":");
-
-                projectGroup.getValue().sort(Comparator.comparingLong(Task::getId));
-                for (Task task : projectGroup.getValue()) {
-                    out.printf("          %d: %s%n", task.getId(), task.getDescription());
-                }
-            }
+            printProjects(dateGroup.getValue());
             out.println();
         }
+    }
 
-        // print no deadline groups
-        if (!noDeadline.isEmpty()) {
-            out.println("No deadline:");
+    private void printNoDeadlineGroups(Map<String, List<Task>> noDeadline) {
+        if (noDeadline.isEmpty()) return;
 
-            for (Map.Entry<String, List<Task>> projectGroup : noDeadline.entrySet()) {
-                out.println("     " + projectGroup.getKey() + ":");
+        out.println("No deadline:");
+        printProjects(noDeadline);
+        out.println();
+    }
 
-                projectGroup.getValue().sort(Comparator.comparingLong(Task::getId));
-                for (Task task : projectGroup.getValue()) {
-                    out.printf("          %d: %s%n", task.getId(), task.getDescription());
-                }
-            }
-            out.println();
+    private void printProjects(Map<String, List<Task>> byProject) {
+        for (Map.Entry<String, List<Task>> projectGroup : byProject.entrySet()) {
+            out.println(INDENT_PROJECT + projectGroup.getKey() + ":");
+            printTasks(projectGroup.getValue());
+        }
+    }
+
+    private void printTasks(List<Task> tasks) {
+        tasks.sort(Comparator.comparingLong(Task::getId));
+        for (Task task : tasks) {
+            out.printf(INDENT_TASK + "%d: %s%n", task.getId(), task.getDescription());
         }
     }
 
