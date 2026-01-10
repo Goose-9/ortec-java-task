@@ -32,6 +32,13 @@ public final class TaskListCli implements Runnable {
         this.service = new TaskListService(new InMemoryTaskRepository());
     }
 
+    // For testing
+    TaskListCli(BufferedReader reader, PrintWriter writer, TaskListService service) {
+        this.in = reader;
+        this.out = writer;
+        this.service = service;
+    }
+
     public void run() {
         out.println("Welcome to TaskList! Type 'help' for available commands.");
         while (true) {
@@ -56,6 +63,9 @@ public final class TaskListCli implements Runnable {
         switch (command) {
             case "show":
                 show();
+                break;
+            case "today":
+                today();
                 break;
             case "deadline":
                 deadline(commandRest[1]);
@@ -82,7 +92,15 @@ public final class TaskListCli implements Runnable {
     }
 
     private void show() {
-        for (Map.Entry<String, List<Task>> project : service.allProjects().entrySet()) {
+        printShowView(service.allProjects());
+    }
+
+    private void today() {
+        printShowView(service.tasksDueToday());
+    }
+
+    private void printShowView(Map<String, List<Task>> projects) {
+        for (Map.Entry<String, List<Task>> project : projects.entrySet()) {
             out.println(project.getKey());
             for (Task task : project.getValue()) {
                 out.printf("    [%c] %d: %s%n", (task.isDone() ? 'x' : ' '), task.getId(), task.getDescription());
@@ -209,6 +227,7 @@ public final class TaskListCli implements Runnable {
         out.println("  check <task ID>");
         out.println("  uncheck <task ID>");
         out.println("  deadline <task ID> <date>");
+        out.println("  today");
         out.println();
     }
 

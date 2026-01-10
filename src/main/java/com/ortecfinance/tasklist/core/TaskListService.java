@@ -2,15 +2,23 @@ package com.ortecfinance.tasklist.core;
 
 import com.ortecfinance.tasklist.domain.Task;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.*;
 
 public final class TaskListService {
     private final TaskRepository repository;
+    private final Clock clock;
     private long lastId = 0;
 
     public TaskListService(TaskRepository repository) {
+        this(repository, Clock.systemDefaultZone());
+    }
+
+    public TaskListService(TaskRepository repository, Clock clock) {
+
         this.repository = repository;
+        this.clock = clock;
     }
 
     public Map<String, List<Task>> allProjects() {
@@ -71,6 +79,22 @@ public final class TaskListService {
         return new DeadlineGroups(byDeadline, noDeadline);
     }
 
+    public Map<String, List<Task>> tasksDueToday() {
+        LocalDate today = today();
+        Map<String, List<Task>> result = new LinkedHashMap<>();
+
+        for (Map.Entry<String, List<Task>> project : repository.allProjects().entrySet()) {
+            List<Task> dueToday = project.getValue().stream()
+                    .filter(t -> t.getDeadline().isPresent() && t.getDeadline().get().equals(today))
+                    .toList();
+
+            if (!dueToday.isEmpty()) {
+                result.put(project.getKey(), new ArrayList<>(dueToday));
+            }
+        }
+        return result;
+    }
+
     private boolean updateTask(long taskId, java.util.function.Consumer<Task> updater) {
         Optional<Task> taskOpt = repository.findTaskById(taskId);
         if (taskOpt.isEmpty()) return false;
@@ -80,5 +104,9 @@ public final class TaskListService {
 
     private long nextId() {
         return ++lastId;
+    }
+
+    private LocalDate today() {
+        return LocalDate.now(clock);
     }
 }
