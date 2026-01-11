@@ -33,9 +33,14 @@ public final class TaskListService {
      * @return true if the project exists and the task was added, else false
      */
     public boolean addTask(String projectName, String description) {
-        if (repository.findProjectTasks(projectName).isEmpty()) return false;
-        repository.addTask(projectName, new Task(nextId(), description, false));
-        return true;
+        return createTask(projectName, description).isPresent();
+    }
+
+    public Optional<Task> createTask(String projectName, String description) {
+        if (repository.findProjectTasks(projectName).isEmpty()) return Optional.empty();
+        Task task = new Task(nextId(),description,false);
+        repository.addTask(projectName, task);
+        return Optional.of(task);
     }
 
     /**
