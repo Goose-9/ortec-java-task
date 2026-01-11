@@ -43,6 +43,13 @@ public final class TaskListService {
         return Optional.of(task);
     }
 
+    public Optional<Task> findTaskInProject(String projectName, long taskId) {
+        return repository.findProjectTasks(projectName)
+                .flatMap(tasks -> tasks.stream()
+                        .filter(t -> t.getId() == taskId)
+                        .findFirst());
+    }
+
     /**
      * @return true if the task exists, else false
      */
@@ -55,6 +62,11 @@ public final class TaskListService {
      */
     public boolean setDeadline(long taskId, LocalDate deadline) {
         return updateTask(taskId, task -> task.setDeadline(deadline));
+    }
+
+    // Project aware deadline set
+    public boolean setDeadline(String projectName, long taskId, LocalDate deadline) {
+        return updateTask(projectName, taskId, task -> task.setDeadline(deadline));
     }
 
     public record DeadlineGroups(
@@ -100,11 +112,20 @@ public final class TaskListService {
         return result;
     }
 
-    private boolean updateTask(long taskId, java.util.function.Consumer<Task> updater) {
-        Optional<Task> taskOpt = repository.findTaskById(taskId);
+    private boolean updateTask(Optional<Task> taskOpt, java.util.function.Consumer<Task> updater) {
         if (taskOpt.isEmpty()) return false;
         updater.accept(taskOpt.get());
         return true;
+    }
+
+    // Global task update
+    private boolean updateTask(long taskId, java.util.function.Consumer<Task> updater) {
+        return updateTask(repository.findTaskById(taskId), updater);
+    }
+
+    // Project aware task update
+    private boolean updateTask(String projectName, long taskId, java.util.function.Consumer<Task> updater) {
+        return updateTask(findTaskInProject(projectName, taskId), updater);
     }
 
     private long nextId() {
