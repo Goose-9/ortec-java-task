@@ -3,16 +3,14 @@ package com.ortecfinance.tasklist.rest;
 import com.ortecfinance.tasklist.domain.DateFormats;
 import com.ortecfinance.tasklist.domain.Task;
 import com.ortecfinance.tasklist.core.TaskListService;
-import com.ortecfinance.tasklist.rest.dto.CreateProjectRequest;
-import com.ortecfinance.tasklist.rest.dto.CreateTaskRequest;
-import com.ortecfinance.tasklist.rest.dto.ProjectResponse;
-import com.ortecfinance.tasklist.rest.dto.TaskResponse;
+import com.ortecfinance.tasklist.rest.dto.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -89,6 +87,33 @@ public class ProjectController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/view_by_deadline")
+    public List<DeadlineGroupResponse> viewByDeadline(){
+        TaskListService.DeadlineGroups groups = service.viewByDeadlineGroups();
+
+        List<DeadlineGroupResponse> result = new ArrayList<>();
+
+        for (var dataEntry : groups.byDeadline().entrySet()) {
+            String dateString = dataEntry.getKey().format(DateFormats.DEADLINE_FORMAT);
+            result.add(new DeadlineGroupResponse(dateString, toProjectResponses(dataEntry.getValue())));
+        }
+
+        if (!groups.noDeadline().isEmpty()) {
+            result.add(new DeadlineGroupResponse(null, toProjectResponses(groups.noDeadline())));
+        }
+
+        return result;
+    }
+
+    private List<ProjectResponse> toProjectResponses(Map<String, List<Task>> byProject) {
+        return byProject.entrySet().stream()
+                .map(entry -> new ProjectResponse(
+                        entry.getKey(),
+                        entry.getValue().stream().map(this::toTaskResponse).toList()
+                ))
+                .toList();
     }
 
     private TaskResponse toTaskResponse(Task task) {

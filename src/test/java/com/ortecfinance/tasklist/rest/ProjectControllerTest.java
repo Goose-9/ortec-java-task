@@ -24,7 +24,7 @@ class ProjectControllerTest {
     void post_projects_creates_project() throws Exception {
         mvc.perform(post("/projects")
                         .contentType(APPLICATION_JSON)
-                        .content("{\"name\":\"secrets\"}"))
+                        .content("{\"name\":\"Secrets\"}"))
                 .andExpect(status().isCreated());
     }
 
@@ -32,12 +32,12 @@ class ProjectControllerTest {
     void get_projects_returns_projects_with_tasks() throws Exception {
         mvc.perform(post("/projects")
                         .contentType(APPLICATION_JSON)
-                        .content("{\"name\":\"secrets\"}"))
+                        .content("{\"name\":\"Secrets\"}"))
                 .andExpect(status().isCreated());
 
         mvc.perform(get("/projects"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].name").value("secrets"))
+                .andExpect(jsonPath("$[0].name").value("Secrets"))
                 .andExpect(jsonPath("$[0].tasks").isArray());
     }
 
@@ -53,10 +53,10 @@ class ProjectControllerTest {
     void post_projects_tasks_creates_task() throws Exception {
         mvc.perform(post("/projects")
                         .contentType(APPLICATION_JSON)
-                        .content("{\"name\":\"secrets\"}"))
+                        .content("{\"name\":\"Secrets\"}"))
                 .andExpect(status().isCreated());
 
-        mvc.perform(post("/projects/secrets/tasks")
+        mvc.perform(post("/projects/Secrets/tasks")
                         .contentType(APPLICATION_JSON)
                         .content("{\"description\":\"Eat more donuts.\"}"))
                 .andExpect(status().isCreated())
@@ -78,10 +78,10 @@ class ProjectControllerTest {
     void post_project_tasks_blank_description_returns_400() throws Exception {
         mvc.perform(post("/projects")
                         .contentType(APPLICATION_JSON)
-                        .content("{\"name\":\"secrets\"}"))
+                        .content("{\"name\":\"Secrets\"}"))
                 .andExpect(status().isCreated());
 
-        mvc.perform(post("/projects/secrets/tasks")
+        mvc.perform(post("/projects/Secrets/tasks")
                         .contentType(APPLICATION_JSON)
                         .content("{\"description\":\"  \"}"))
                 .andExpect(status().isBadRequest());
@@ -91,10 +91,10 @@ class ProjectControllerTest {
     void put_project_task_deadline_updates_deadline() throws Exception {
         mvc.perform(post("/projects")
                         .contentType(APPLICATION_JSON)
-                        .content("{\"name\":\"secrets\"}"))
+                        .content("{\"name\":\"Secrets\"}"))
                 .andExpect(status().isCreated());
 
-        mvc.perform(post("/projects/secrets/tasks")
+        mvc.perform(post("/projects/Secrets/tasks")
                         .contentType(APPLICATION_JSON)
                         .content("{\"description\":\"Eat more donuts.\"}"))
                 .andExpect(status().isCreated())
@@ -102,7 +102,7 @@ class ProjectControllerTest {
 
         // Task id will be 1 since each test is a fresh context (because of @DirtiesContext,
         // can be changed to use the response from the task creation request above.
-        mvc.perform(put("/projects/secrets/tasks/1")
+        mvc.perform(put("/projects/Secrets/tasks/1")
                         .param("deadline", "25-01-2026"))
                 .andExpect(status().isNoContent());
 
@@ -113,43 +113,77 @@ class ProjectControllerTest {
 
     @Test
     void put_project_task_deadline_wrong_project_returns_404() throws Exception {
-        mvc.perform(post("/projects").contentType(APPLICATION_JSON).content("{\"name\":\"secrets\"}"))
+        mvc.perform(post("/projects").contentType(APPLICATION_JSON).content("{\"name\":\"Secrets\"}"))
                 .andExpect(status().isCreated());
-        mvc.perform(post("/projects").contentType(APPLICATION_JSON).content("{\"name\":\"training\"}"))
+        mvc.perform(post("/projects").contentType(APPLICATION_JSON).content("{\"name\":\"Training\"}"))
                 .andExpect(status().isCreated());
 
-        mvc.perform(post("/projects/secrets/tasks")
+        mvc.perform(post("/projects/Secrets/tasks")
                         .contentType(APPLICATION_JSON)
                         .content("{\"description\":\"Eat more donuts.\"}"))
                 .andExpect(status().isCreated());
 
-        // Try and update the task under project "training", but the task is under "secrets".
-        mvc.perform(put("/projects/training/tasks/1")
+        // Try and update the task under project "Training", but the task is under "Secrets".
+        mvc.perform(put("/projects/Training/tasks/1")
                         .param("deadline", "25-01-2026"))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     void put_project_task_deadline_bad_format_returns_400() throws Exception {
-        mvc.perform(post("/projects").contentType(APPLICATION_JSON).content("{\"name\":\"secrets\"}"))
+        mvc.perform(post("/projects").contentType(APPLICATION_JSON).content("{\"name\":\"Secrets\"}"))
                 .andExpect(status().isCreated());
-        mvc.perform(post("/projects/secrets/tasks")
+        mvc.perform(post("/projects/Secrets/tasks")
                         .contentType(APPLICATION_JSON)
                         .content("{\"description\":\"Eat more donuts.\"}"))
                 .andExpect(status().isCreated());
 
-        mvc.perform(put("/projects/training/tasks/1")
+        mvc.perform(put("/projects/Training/tasks/1")
                         .param("deadline", "25-1-2026"))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     void put_project_task_deadline_unknown_task_returns_404() throws Exception {
-        mvc.perform(post("/projects").contentType(APPLICATION_JSON).content("{\"name\":\"secrets\"}"))
+        mvc.perform(post("/projects").contentType(APPLICATION_JSON).content("{\"name\":\"Secrets\"}"))
                 .andExpect(status().isCreated());
 
-        mvc.perform(put("/projects/training/tasks/999")
+        mvc.perform(put("/projects/Training/tasks/999")
                         .param("deadline", "25-01-2026"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void get_view_by_deadline_groups_tasks_by_deadline() throws Exception {
+        mvc.perform(post("/projects").contentType(APPLICATION_JSON).content("{\"name\":\"Secrets\"}"))
+                .andExpect(status().isCreated());
+        mvc.perform(post("/projects").contentType(APPLICATION_JSON).content("{\"name\":\"Training\"}"))
+                .andExpect(status().isCreated());
+
+        mvc.perform(post("/projects/Secrets/tasks").contentType(APPLICATION_JSON)
+                        .content("{\"description\":\"Eat more donuts.\"}"))
+                .andExpect(status().isCreated());
+        mvc.perform(post("/projects/Training/tasks").contentType(APPLICATION_JSON)
+                        .content("{\"description\":\"Refactor the codebase\"}"))
+                .andExpect(status().isCreated());
+
+        mvc.perform(put("/projects/Secrets/tasks/1").param("deadline", "11-11-2021"))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(get("/projects/view_by_deadline"))
+                .andExpect(status().isOk())
+                // first group is 11-11-2021
+                .andExpect(jsonPath("$[0].deadline").value("11-11-2021"))
+                .andExpect(jsonPath("$[0].projects[0].name").value("Secrets"))
+                .andExpect(jsonPath("$[0].projects[0].tasks[0].description").value("Eat more donuts."))
+                // last group is no-deadline
+                .andExpect(jsonPath("$[1].deadline").isEmpty());
+    }
+
+    @Test
+    void get_view_by_deadline_empty_returns_empty_array() throws Exception {
+        mvc.perform(get("/projects/view_by_deadline"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("[]"));
     }
 }
