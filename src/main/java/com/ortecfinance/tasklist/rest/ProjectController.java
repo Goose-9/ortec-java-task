@@ -4,6 +4,7 @@ import com.ortecfinance.tasklist.domain.DateFormats;
 import com.ortecfinance.tasklist.domain.Task;
 import com.ortecfinance.tasklist.core.TaskListService;
 import com.ortecfinance.tasklist.rest.dto.CreateProjectRequest;
+import com.ortecfinance.tasklist.rest.dto.CreateTaskRequest;
 import com.ortecfinance.tasklist.rest.dto.ProjectResponse;
 import com.ortecfinance.tasklist.rest.dto.TaskResponse;
 import org.springframework.http.HttpStatus;
@@ -45,6 +46,22 @@ public class ProjectController {
                                 .toList()
                 ))
                 .toList();
+    }
+
+    @PostMapping("/{project}/tasks")
+    public ResponseEntity<TaskResponse> createTask(
+            @PathVariable("project") String project,
+            @RequestBody CreateTaskRequest request
+            ) {
+        if (request == null || request.description() == null || request.description().isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        return service.createTask(project, request.description().trim())
+                .map(task -> ResponseEntity
+                        .status(HttpStatus.CREATED)
+                        .body(toTaskResponse(task)))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
 
     private TaskResponse toTaskResponse(Task task) {

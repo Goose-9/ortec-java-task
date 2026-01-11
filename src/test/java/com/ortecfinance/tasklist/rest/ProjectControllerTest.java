@@ -47,4 +47,42 @@ class ProjectControllerTest {
                         .content("{\"name\":\"   \"}"))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    void post_projects_tasks_creates_task() throws Exception {
+        mvc.perform(post("/projects")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"name\":\"secrets\"}"))
+                .andExpect(status().isCreated());
+
+        mvc.perform(post("/projects/secrets/tasks")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"description\":\"Eat more donuts.\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").isNumber())
+                .andExpect(jsonPath("$.description").value("Eat more donuts."))
+                .andExpect(jsonPath("$.done").value(false))
+                .andExpect(jsonPath("$.deadline").isEmpty());
+    }
+
+    @Test
+    void post_project_tasks_unknown_project_returns_404() throws Exception {
+        mvc.perform(post("/projects/doesnotexist/tasks")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"description\":\"X\"}"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void post_project_tasks_blank_description_returns_400() throws Exception {
+        mvc.perform(post("/projects")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"name\":\"secrets\"}"))
+                .andExpect(status().isCreated());
+
+        mvc.perform(post("/projects/secrets/tasks")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"description\":\"  \"}"))
+                .andExpect(status().isBadRequest());
+    }
 }
