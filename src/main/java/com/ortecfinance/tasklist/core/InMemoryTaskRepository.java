@@ -23,7 +23,8 @@ public class InMemoryTaskRepository implements TaskRepository {
 
     @Override
     public Optional<List<Task>> findProjectTasks(String projectName) {
-        return Optional.ofNullable(tasks.get(projectName));
+        return Optional.ofNullable(tasks.get(projectName))
+                .map(Collections::unmodifiableList);
     }
 
     @Override
@@ -39,6 +40,10 @@ public class InMemoryTaskRepository implements TaskRepository {
 
     @Override
     public Map<String, List<Task>> allProjects() {
-        return tasks;
+        Map<String, List<Task>> readView = new LinkedHashMap<>();
+        for (Map.Entry<String, List<Task>> entry : tasks.entrySet()) {
+            readView.put(entry.getKey(), Collections.unmodifiableList(entry.getValue()));
+        }
+        return Collections.unmodifiableMap(readView);
     }
 }
