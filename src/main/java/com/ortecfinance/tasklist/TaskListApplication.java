@@ -14,7 +14,7 @@ public class TaskListApplication {
         }
         else {
             SpringApplication.run(TaskListApplication.class, args);
-            System.out.println("localhost:8080/tasks");
+            System.out.println("localhost:8080/projects");
         }
     }
 
