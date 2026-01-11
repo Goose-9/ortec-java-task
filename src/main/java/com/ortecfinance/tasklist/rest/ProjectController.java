@@ -11,6 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 
@@ -62,6 +64,31 @@ public class ProjectController {
                         .status(HttpStatus.CREATED)
                         .body(toTaskResponse(task)))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
+    }
+
+    @PutMapping("/{project}/tasks/{taskId}")
+    public ResponseEntity<Void> updateDeadline(
+            @PathVariable String project,
+            @PathVariable long taskId,
+            @RequestParam("deadline") String deadline
+    ) {
+        if (deadline == null || deadline.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        final LocalDate parsed;
+        try {
+            parsed = LocalDate.parse(deadline, DateFormats.DEADLINE_FORMAT);
+        } catch (DateTimeParseException e){
+            return ResponseEntity.badRequest().build();
+        }
+
+        boolean updated = service.setDeadline(project, taskId, parsed);
+        if (!updated) {
+            // either project does not exist or task not in specified project
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+        return ResponseEntity.noContent().build();
     }
 
     private TaskResponse toTaskResponse(Task task) {
